@@ -1,34 +1,15 @@
-package thriftclientpool
+package resourcepool
 
 import (
 	"container/list"
 	"errors"
 	"net"
 	"sync"
-
-	"git.apache.org/thrift.git/lib/go/thrift"
 )
 
 const DefaultPoolSize = 32
 
-// GetDefaultTransport creates a tcp based transport with binary protocol.
-func GetDefaultTransport(host, port string) (thrift.TTransport, thrift.TProtocolFactory, error) {
-	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
-	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-
-	transport, err := thrift.NewTSocket(net.JoinHostPort(host, port))
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	useTransport := transportFactory.GetTransport(transport)
-	useTransport.Open()
-
-	return useTransport, protocolFactory, nil
-}
-
-type ThriftClientPool struct {
+type ResourcePool struct {
 	lock         sync.Mutex
 	host         string
 	port         string
@@ -45,8 +26,8 @@ type ClientCreationFunc func(host, port string) (interface{}, error)
 type ClientCloseFunc func(interface{}) error
 
 // AddServer adds a new server to the pool.
-func NewThriftClientPool(host, port string, fnCreation ClientCreationFunc, fnClose ClientCloseFunc, maxSize int) (*ThriftClientPool, error) {
-	pool := ThriftClientPool{
+func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose ClientCloseFunc, maxSize int) (*ResourcePool, error) {
+	pool := ResourcePool{
 		//lock : sync.Mutex
 		host:         host,
 		port:         port,
@@ -57,7 +38,7 @@ func NewThriftClientPool(host, port string, fnCreation ClientCreationFunc, fnClo
 }
 
 // Get retrives a connection from the pool.
-func (pool *ThriftClientPool) Get() (interface{}, error) {
+func (pool *ResourcePool) Get() (interface{}, error) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 
@@ -78,7 +59,7 @@ func (pool *ThriftClientPool) Get() (interface{}, error) {
 }
 
 // Release puts the connection back to the pool.
-func (pool *ThriftClientPool) Release(c interface{}) error {
+func (pool *ResourcePool) Release(c interface{}) error {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 
@@ -97,7 +78,7 @@ func (pool *ThriftClientPool) Release(c interface{}) error {
 }
 
 // Shrink disconnects all idle connectsions.
-func (pool *ThriftClientPool) Shrink() {
+func (pool *ResourcePool) Shrink() {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 
@@ -108,7 +89,7 @@ func (pool *ThriftClientPool) Shrink() {
 }
 
 // Destroy disconnects all connectsions.
-func (pool *ThriftClientPool) Destroy() {
+func (pool *ResourcePool) Destroy() {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 
@@ -121,12 +102,12 @@ func (pool *ThriftClientPool) Destroy() {
 }
 
 // Replace replaces existing connections to oldServer with connections to newServer.
-func (pool *ThriftClientPool) Replace(oldHost, oldPort, newHost, newPort string) {
+func (pool *ResourcePool) Replace(oldHost, oldPort, newHost, newPort string) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 }
 
 // Count returns total number of connections in the pool.
-func (pool *ThriftClientPool) Count() int {
+func (pool *ResourcePool) Count() int {
 	return pool.idleList.Len() + pool.busyList.Len()
 }
