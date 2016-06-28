@@ -3,10 +3,30 @@ package thriftclientpool
 import (
 	"container/list"
 	"errors"
+	"net"
 	"sync"
+
+	"git.apache.org/thrift.git/lib/go/thrift"
 )
 
 const DefaultPoolSize = 32
+
+// GetDefaultTransport creates a tcp based transport with binary protocol.
+func GetDefaultTransport(host, port string) (thrift.TTransport, thrift.TProtocolFactory, error) {
+	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
+	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
+
+	transport, err := thrift.NewTSocket(net.JoinHostPort(host, port))
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	useTransport := transportFactory.GetTransport(transport)
+	useTransport.Open()
+
+	return useTransport, protocolFactory, nil
+}
 
 type ThriftClientPool struct {
 	lock         sync.Mutex
