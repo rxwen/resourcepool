@@ -6,11 +6,14 @@ import (
 	"sync"
 )
 
+const DefaultPoolSize = 32
+
 type ThriftClientPool struct {
 	lock         sync.Mutex
 	host         string
 	port         string
 	creationFunc ClientCreationFunc
+	closeFunc    ClientCloseFunc
 	idleList     list.List
 	busyList     list.List
 }
@@ -18,13 +21,17 @@ type ThriftClientPool struct {
 // ClientCreationFunc is the function used for creating new client.
 type ClientCreationFunc func(host, port string) (interface{}, error)
 
+// ClientCloseFunc is the function used for closing client.
+type ClientCloseFunc func(interface{}) error
+
 // AddServer adds a new server to the pool.
-func NewThriftClientPool(host, port string, fn ClientCreationFunc) (*ThriftClientPool, error) {
+func NewThriftClientPool(host, port string, fnCreation ClientCreationFunc, fnClose ClientCloseFunc, maxSize int) (*ThriftClientPool, error) {
 	pool := ThriftClientPool{
 		//lock : sync.Mutex
 		host:         host,
 		port:         port,
-		creationFunc: fn,
+		creationFunc: fnCreation,
+		closeFunc:    fnClose,
 	}
 	return &pool, nil
 }
@@ -69,14 +76,37 @@ func (pool *ThriftClientPool) Release(c interface{}) error {
 	}
 }
 
+// Shrink disconnects all idle connectsions.
+func (pool *ThriftClientPool) Shrink() {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+
+	for client := pool.idleList.Front(); client != nil; client = client.Next() {
+		pool.closeFunc(client.Value)
+		pool.idleList.Remove(client)
+	}
+}
+
 // Destroy disconnects all connectsions.
 func (pool *ThriftClientPool) Destroy() {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
+
+	pool.Shrink()
+
+	for client := pool.busyList.Front(); client != nil; client = client.Next() {
+		pool.closeFunc(client.Value)
+		pool.idleList.Remove(client)
+	}
 }
 
 // Replace replaces existing connections to oldServer with connections to newServer.
 func (pool *ThriftClientPool) Replace(oldHost, oldPort, newHost, newPort string) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
+}
+
+// Count returns total number of connections in the pool.
+func (pool *ThriftClientPool) Count() int {
+	return pool.idleList.Len() + pool.busyList.Len()
 }
