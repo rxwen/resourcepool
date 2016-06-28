@@ -3,7 +3,6 @@ package resourcepool
 import (
 	"container/list"
 	"errors"
-	"net"
 	"sync"
 )
 

@@ -1,14 +1,14 @@
-package thriftclientpool_test
+package resourcepool_test
 
 import (
-	"github.com/rxwen/thrift-client-pool"
+	"github.com/rxwen/resourcepool"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestClientPool(t *testing.T) {
+func TestResourcePool(t *testing.T) {
 	assert := assert.New(t)
-	pool, err := thriftclientpool.NewThriftClientPool("fakehost", "9090", func(host, port string) (interface{}, error) {
+	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
 		return "fake_connection", nil
 	}, func(interface{}) error {
 		return nil
