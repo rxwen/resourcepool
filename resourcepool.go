@@ -4,9 +4,11 @@ import (
 	"container/list"
 	"errors"
 	"sync"
+	"time"
 )
 
 const DefaultPoolSize = 32
+const DefaultGetTimeoutSecond = 3
 
 type ResourcePool struct {
 	lock         sync.Mutex
@@ -14,8 +16,10 @@ type ResourcePool struct {
 	port         string
 	creationFunc ClientCreationFunc
 	closeFunc    ClientCloseFunc
-	idleList     list.List
+	maxSize      int
+	getTimeout   int
 	busyList     list.List
+	idleList     chan interface{}
 }
 
 // ClientCreationFunc is the function used for creating new client.
@@ -25,78 +29,69 @@ type ClientCreationFunc func(host, port string) (interface{}, error)
 type ClientCloseFunc func(interface{}) error
 
 // AddServer adds a new server to the pool.
-func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose ClientCloseFunc, maxSize int) (*ResourcePool, error) {
+func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose ClientCloseFunc, maxSize, getTimeout int) (*ResourcePool, error) {
 	pool := ResourcePool{
-		//lock : sync.Mutex
+		maxSize:      maxSize,
 		host:         host,
 		port:         port,
 		creationFunc: fnCreation,
 		closeFunc:    fnClose,
+		getTimeout:   getTimeout,
+		idleList:     make(chan interface{}, maxSize),
 	}
 	return &pool, nil
 }
 
 // Get retrives a connection from the pool.
 func (pool *ResourcePool) Get() (interface{}, error) {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-
-	if pool.idleList.Len() > 0 {
-		client := pool.idleList.Front()
-		pool.idleList.Remove(client)
-		pool.busyList.PushBack(client.Value)
-		return client.Value, nil
+	var res interface{}
+	var err error
+	if pool.Count() < pool.maxSize {
+		res, err = pool.creationFunc(pool.host, pool.port)
 	} else {
-		client, err := pool.creationFunc(pool.host, pool.port)
-
-		if err != nil {
-			return nil, err
+		if pool.getTimeout != 0 {
+			select {
+			case res = <-pool.idleList:
+			case <-time.After(time.Second * time.Duration(pool.getTimeout)):
+				res = nil
+				err = errors.New("timed out")
+			}
+		} else {
+			select {
+			case res = <-pool.idleList:
+			}
 		}
-		pool.busyList.PushBack(client)
-		return client, nil
 	}
+	if err == nil {
+		pool.lock.Lock()
+		defer pool.lock.Unlock()
+		pool.busyList.PushBack(res)
+	}
+	return res, err
 }
 
 // Release puts the connection back to the pool.
 func (pool *ResourcePool) Release(c interface{}) error {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
-
 	element := pool.busyList.Front()
 	for {
 		if element == nil {
 			return errors.New("the client isn't found in the pool, is it a managed client?")
 		}
 		if c == element.Value {
+			pool.idleList <- c
 			pool.busyList.Remove(element)
-			pool.idleList.PushBack(element.Value)
 			return nil
 		}
 		element = element.Next()
 	}
 }
 
-// Shrink disconnects all idle connectsions.
-func (pool *ResourcePool) Shrink() {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-
-	for client := pool.idleList.Front(); client != nil; client = client.Next() {
-		pool.closeFunc(client.Value)
-		pool.idleList.Remove(client)
-	}
-}
-
 // Destroy disconnects all connectsions.
 func (pool *ResourcePool) Destroy() {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-
-	pool.Shrink()
-
-	for client := pool.busyList.Front(); client != nil; client = client.Next() {
-		pool.closeFunc(client.Value)
-		pool.idleList.Remove(client)
+	for res := range pool.idleList {
+		pool.closeFunc(res)
 	}
 }
 
@@ -108,5 +103,7 @@ func (pool *ResourcePool) Replace(oldHost, oldPort, newHost, newPort string) {
 
 // Count returns total number of connections in the pool.
 func (pool *ResourcePool) Count() int {
-	return pool.idleList.Len() + pool.busyList.Len()
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+	return len(pool.idleList) + pool.busyList.Len()
 }
