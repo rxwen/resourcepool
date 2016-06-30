@@ -77,7 +77,7 @@ func (pool *ResourcePool) Release(c interface{}) error {
 	element := pool.busyList.Front()
 	for {
 		if element == nil {
-			return errors.New("the client isn't found in the pool, is it a managed client?")
+			return errors.New("the resource isn't found in the pool, is it a managed resource?")
 		}
 		if c == element.Value {
 			pool.idleList <- c
