@@ -80,19 +80,31 @@ func (pool *ResourcePool) Release(c interface{}) error {
 			return errors.New("the resource isn't found in the pool, is it a managed resource?")
 		}
 		if c == element.Value {
-			pool.idleList <- c
-			pool.busyList.Remove(element)
-			return nil
+			select {
+			case pool.idleList <- c:
+				pool.busyList.Remove(element)
+				return nil
+			default:
+				pool.closeFunc(c)
+				return errors.New("the resource can't be put to idle list")
+			}
 		}
 		element = element.Next()
 	}
 }
 
 // Destroy disconnects all connectsions.
-func (pool *ResourcePool) Destroy() {
+func (pool *ResourcePool) Destroy() error {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+	if pool.busyList.Len() < 1 {
+		return errors.New("not all managed resources are free, can't destory now")
+	}
+	close(pool.idleList)
 	for res := range pool.idleList {
 		pool.closeFunc(res)
 	}
+	return nil
 }
 
 // Replace replaces existing connections to oldServer with connections to newServer.
