@@ -3,6 +3,8 @@ package resourcepool
 import (
 	"container/list"
 	"errors"
+	"log"
+	"net"
 	"sync"
 	"time"
 )
@@ -46,20 +48,37 @@ func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose C
 func (pool *ResourcePool) Get() (interface{}, error) {
 	var res interface{}
 	var err error
-	if pool.Count() < pool.maxSize {
+	select {
+	// try get without block to see if resource is already available
+	case res = <-pool.idleList:
+	default:
+		res = nil
+	}
+
+	if res != nil {
+		pool.lock.Lock()
+		defer pool.lock.Unlock()
+		pool.busyList.PushBack(res)
+		return res, nil
+	} else if pool.Count() < pool.maxSize {
 		res, err = pool.creationFunc(pool.host, pool.port)
-	} else {
-		if pool.getTimeout != 0 {
-			select {
-			case res = <-pool.idleList:
-			case <-time.After(time.Second * time.Duration(pool.getTimeout)):
-				res = nil
-				err = errors.New("timed out")
-			}
+		if err != nil {
+			log.Println("resource creation failed: ", err)
 		} else {
-			select {
-			case res = <-pool.idleList:
-			}
+			pool.idleList <- res
+		}
+	}
+
+	if pool.getTimeout != 0 {
+		select {
+		case res = <-pool.idleList:
+		case <-time.After(time.Second * time.Duration(pool.getTimeout)):
+			res = nil
+			err = errors.New("get resource timed out")
+		}
+	} else {
+		select {
+		case res = <-pool.idleList:
 		}
 	}
 	if err == nil {
@@ -90,6 +109,33 @@ func (pool *ResourcePool) Release(c interface{}) error {
 			}
 		}
 		element = element.Next()
+	}
+}
+
+// CheckError destroies the connection when necessary by checking error.
+func (pool *ResourcePool) CheckError(c interface{}, err error) error {
+	if err == nil {
+		return nil
+	}
+	switch err.(type) {
+	case net.Error:
+		pool.lock.Lock()
+		defer pool.lock.Unlock()
+		element := pool.busyList.Front()
+		for {
+			if element == nil {
+				return errors.New("the resource isn't found in the pool, is it a managed resource?")
+			}
+			if c == element.Value {
+				log.Println("encountered a network error, destory the connection now")
+				pool.busyList.Remove(element)
+				pool.closeFunc(c)
+				return nil
+			}
+			element = element.Next()
+		}
+	default:
+		return nil
 	}
 }
 
