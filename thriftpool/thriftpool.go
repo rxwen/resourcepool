@@ -58,9 +58,13 @@ func CreateThriftClient(protocolType, transportType, host, port string) (
 }
 
 // CreateThriftServer creates a thrift server.
-func CreateThriftServer(protocolType, transportType, host, port string,
+func CreateThriftServer(protocolType, transportType, endpoint string,
 	processor thrift.TProcessor) (
 	server *thrift.TSimpleServer, err error) {
+	host, port, err := srvresolver.ResolveSRV(endpoint)
+	if err != nil {
+		return nil, err
+	}
 	transportFactory := thrift.NewTTransportFactory()
 
 	var protocolFactory thrift.TProtocolFactory
