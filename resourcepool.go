@@ -4,9 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"log"
-	"net"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -118,26 +116,22 @@ func (pool *ResourcePool) CheckError(c interface{}, err error) error {
 	if err == nil {
 		return nil
 	}
-	switch err.(type) {
-	case net.Error, syscall.EPIPE:
-		pool.lock.Lock()
-		defer pool.lock.Unlock()
-		element := pool.busyList.Front()
-		for {
-			if element == nil {
-				return errors.New("the resource isn't found in the pool, is it a managed resource?")
-			}
-			if c == element.Value {
-				log.Println("encountered a network error, destory the connection now")
-				pool.busyList.Remove(element)
-				pool.closeFunc(c)
-				return nil
-			}
-			element = element.Next()
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+	element := pool.busyList.Front()
+	for {
+		if element == nil {
+			return errors.New("the resource isn't found in the pool, is it a managed resource?")
 		}
-	default:
-		return nil
+		if c == element.Value {
+			log.Println("encountered an error, destory the connection now")
+			pool.busyList.Remove(element)
+			pool.closeFunc(c)
+			return nil
+		}
+		element = element.Next()
 	}
+	return nil
 }
 
 // Destroy disconnects all connectsions.
