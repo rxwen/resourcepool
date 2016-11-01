@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -118,7 +119,7 @@ func (pool *ResourcePool) CheckError(c interface{}, err error) error {
 		return nil
 	}
 	switch err.(type) {
-	case net.Error:
+	case net.Error, syscall.EPIPE:
 		pool.lock.Lock()
 		defer pool.lock.Unlock()
 		element := pool.busyList.Front()
