@@ -60,12 +60,14 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 		pool.busyList.PushBack(res)
 		return res, nil
 	} else if pool.Count() < pool.maxSize {
-		res, err = pool.creationFunc(pool.host, pool.port)
-		if err != nil {
-			log.Println("resource creation failed: ", err)
-		} else {
-			pool.idleList <- res
-		}
+		go func() {
+			res, err = pool.creationFunc(pool.host, pool.port)
+			if err != nil {
+				log.Println("resource creation failed: ", err)
+			} else {
+				pool.idleList <- res
+			}
+		}()
 	}
 
 	if pool.getTimeout != 0 {
