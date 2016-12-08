@@ -3,6 +3,7 @@ package resourcepool
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -47,10 +48,13 @@ func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose C
 func (pool *ResourcePool) Get() (interface{}, error) {
 	var res interface{}
 	var err error
+	fmt.Println("total size: ", pool.Count(), "busy list len", pool.busyList.Len())
 	select {
 	// try get without block to see if resource is already available
 	case res = <-pool.idleList:
+		fmt.Println("there is idle resource available now")
 	default:
+		fmt.Println("there is no idle resource available now")
 		res = nil
 	}
 
