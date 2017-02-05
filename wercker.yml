@@ -22,17 +22,17 @@ build:
         - setup-go-workspace
 
         - script:
-            name: go get
-            code: |
-	            go get github.com/stretchr/testify
+              name: go get
+              code: |
+                go get github.com/stretchr/testify
                 go get ./...
 
         - script:
-            name: go build
-            code: |
+              name: go build
+              code: |
                 go build ./...
 
         - script:
-            name: go test
-            code: |
+              name: go test
+              code: |
                 go test ./... -v
