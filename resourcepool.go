@@ -48,6 +48,10 @@ func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose C
 func (pool *ResourcePool) Get() (interface{}, error) {
 	var res interface{}
 	var err error
+	if pool.maxSize == 0 {
+		fmt.Println("max size is 0")
+		return pool.creationFunc(pool.host, pool.port)
+	}
 	fmt.Println("total size: ", pool.Count(), "busy list len", pool.busyList.Len())
 	select {
 	// try get without block to see if resource is already available
