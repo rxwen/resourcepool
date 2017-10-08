@@ -2,6 +2,7 @@ package rabbitmqpool
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/rxwen/resourcepool"
 	"github.com/rxwen/srvresolver"
@@ -9,13 +10,17 @@ import (
 )
 
 // CreateRabbitmqConnectionPool function creates a connection for specified Rabbitmq service.
-func CreateRabbitmqConnectionPool(username, password, RabbitmqService string, poolSize int, timeoutSecond int) (*resourcepool.ResourcePool, error) {
+func CreateRabbitmqConnectionPool(rabbitmqService string, poolSize int, timeoutSecond int) (*resourcepool.ResourcePool, error) {
+	if rabbitmqService[len(rabbitmqService)-1] == '/' {
+		rabbitmqService = rabbitmqService[0 : len(rabbitmqService)-1]
+	}
 	RabbitmqPool, err := resourcepool.NewResourcePool("", "", func(host, port string) (interface{}, error) {
-		server, port, err := srvresolver.ResolveSRV(RabbitmqService)
+		s := strings.Split(rabbitmqService, "@")
+		server, port, err := srvresolver.ResolveSRV(s[1])
 		if err != nil {
 			return nil, err
 		}
-		url := fmt.Sprintf("amqp://%s:%s@%s:%s/", "guest", "guest", server, port)
+		url := fmt.Sprintf("%s@%s:%s/", s[0], server, port)
 		c, err := amqp.Dial(url)
 		return c, err
 	}, func(c interface{}) error {
