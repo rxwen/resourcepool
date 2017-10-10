@@ -1,6 +1,7 @@
 package resourcepool_test
 
 import (
+	"errors"
 	"log"
 	"testing"
 
@@ -8,11 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type FakeResource struct {
+	Name string
+}
+
 func TestResourcePool(t *testing.T) {
 	assert := assert.New(t)
 	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
 		log.Println("create new resource")
-		return "fake_connection", nil
+		return &FakeResource{}, nil
 	}, func(interface{}) error {
 		return nil
 	}, 3, 1)
@@ -59,4 +64,30 @@ func TestResourcePool(t *testing.T) {
 	assert.Equal(3, pool.Count())
 	err = pool.Release(con)
 	assert.Equal(3, pool.Count())
+}
+
+func TestResourcePoolCheckError(t *testing.T) {
+	assert := assert.New(t)
+	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
+		log.Println("create new resource")
+		return &FakeResource{}, nil
+	}, func(interface{}) error {
+		return nil
+	}, 3, 1)
+
+	_, err = pool.Get()
+	_, err = pool.Get()
+	con, err := pool.Get()
+	assert.Nil(err)
+	assert.NotNil(con)
+	defer pool.Release(con)
+	fe := errors.New("fake error")
+	count1 := pool.Count()
+	log.Println(pool.Count())
+	assert.Nil(pool.CheckError(con, fe))
+	count2 := pool.Count()
+	assert.NotNil(pool.CheckError(con, fe))
+	count3 := pool.Count()
+	assert.NotEqual(count1, count2)
+	assert.Equal(count3, count2)
 }

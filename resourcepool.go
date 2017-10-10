@@ -141,7 +141,6 @@ func (pool *ResourcePool) CheckError(c interface{}, err error) error {
 		}
 		element = element.Next()
 	}
-	return nil
 }
 
 // Destroy disconnects all connectsions.
