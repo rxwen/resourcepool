@@ -1,6 +1,7 @@
 package rabbitmqpool
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,9 @@ func CreateRabbitmqConnectionPool(rabbitmqService string, poolSize int, timeoutS
 	}
 	RabbitmqPool, err := resourcepool.NewResourcePool("", "", func(host, port string) (interface{}, error) {
 		s := strings.Split(rabbitmqService, "@")
+		if len(s) != 2 {
+			return nil, errors.New("invalid rabbitmq service endpoint, should be amqp://user:pass@host:port")
+		}
 		server, port, err := srvresolver.ResolveSRV(s[1])
 		if err != nil {
 			return nil, err
