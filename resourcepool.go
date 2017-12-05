@@ -52,13 +52,13 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 		fmt.Println("max size is 0")
 		return pool.creationFunc(pool.host, pool.port)
 	}
-	fmt.Println("total size: ", pool.Count(), "busy list len", pool.busyList.Len())
+	//fmt.Println("total size: ", pool.Count(), "busy list len", pool.busyList.Len())
 	select {
 	// try get without block to see if resource is already available
 	case res = <-pool.idleList:
-		fmt.Println("there is idle resource available now")
+		//fmt.Println("there is idle resource available now")
 	default:
-		fmt.Println("there is no idle resource available now")
+		//fmt.Println("there is no idle resource available now")
 		res = nil
 	}
 
