@@ -71,8 +71,8 @@ func (pool *ResourcePool) Release(c interface{}) error {
 
 }
 
-// CloseResourceIfError destroies the connection when necessary by checking error.
-func (pool *ResourcePool) CloseResourceIfError(c interface{}, err error) error {
+// CheckError destroies the connection when necessary by checking error.
+func (pool *ResourcePool) CheckError(c interface{}, err error) error {
 	if err == nil {
 		return nil
 	}

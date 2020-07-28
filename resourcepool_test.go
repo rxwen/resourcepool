@@ -95,7 +95,7 @@ func TestResourcePool(t *testing.T) {
 	assert.Equal(3, pool.Count())
 }
 
-func TestResourcePoolCloseResourceIfError(t *testing.T) {
+func TestResourcePoolCheckError(t *testing.T) {
 	assert := assert.New(t)
 	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
 		log.Println("create new resource")
@@ -113,7 +113,7 @@ func TestResourcePoolCloseResourceIfError(t *testing.T) {
 	defer pool.Release(con)
 	fe := errors.New("fake error")
 	count1 := pool.Count()
-	assert.Nil(pool.CloseResourceIfError(con, fe))
+	assert.Nil(pool.CheckError(con, fe))
 	con = nil
 	assert.Nil(pool.Release(con))
 	count2 := pool.Count()
