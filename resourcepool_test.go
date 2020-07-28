@@ -114,6 +114,8 @@ func TestResourcePoolCheckError(t *testing.T) {
 	fe := errors.New("fake error")
 	count1 := pool.Count()
 	assert.Nil(pool.CheckError(con, fe))
+	con = nil
+	assert.Nil(pool.Release(con))
 	count2 := pool.Count()
 	assert.Equal(count1, count2)
 }
