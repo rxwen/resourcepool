@@ -39,7 +39,8 @@ func main() {
 		log.Println("about to write message " + text)
 		n, err := con.Write([]byte("hello world " + text + " \n"))
 		log.Println("write message result ", n, " ", err)
-		pool.CheckError(con, err)
+		pool.CloseResourceIfError(con, err)
+		con = nil
 		err = pool.Release(res)
 		log.Println("release result: ", err)
 	}
