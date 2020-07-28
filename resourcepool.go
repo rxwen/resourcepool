@@ -55,7 +55,7 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 // Release puts the connection back to the pool.
 func (pool *ResourcePool) Release(c interface{}) error {
 	if c == nil {
-		log.Info("release nil resource, ignore it")
+		log.Info("release nil resource, ignore")
 		return nil
 	}
 	if len(pool.idleList) >= pool.maxSize {
