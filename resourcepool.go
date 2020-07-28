@@ -41,7 +41,7 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 	select {
 	// try get without block to see if resource is already available
 	case res = <-pool.idleList:
-		log.Info("free resource already available")
+		log.Info("free resource already available, reuse it")
 	default:
 		log.Info("there is no idle resource available now, create one")
 		res, err = pool.creationFunc(pool.host, pool.port)
