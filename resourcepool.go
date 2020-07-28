@@ -76,7 +76,7 @@ func (pool *ResourcePool) CheckError(c interface{}, err error) error {
 	if err == nil {
 		return nil
 	}
-	log.Info("encountered an error, destory the connection now")
+	log.Info("encountered an error, destory the connection")
 	pool.closeFunc(c)
 	return nil
 }
