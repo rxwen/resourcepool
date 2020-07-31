@@ -41,9 +41,7 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 	select {
 	// try get without block to see if resource is already available
 	case res = <-pool.idleList:
-		log.Info("free resource already available, reuse it")
 	default:
-		log.Info("there is no idle resource available now, create one")
 		res, err = pool.creationFunc(pool.host, pool.port)
 		if err != nil {
 			log.WithError(err).Error("resource creation failed")
@@ -59,13 +57,11 @@ func (pool *ResourcePool) Release(c interface{}) error {
 		return nil
 	}
 	if len(pool.idleList) >= pool.maxSize {
-		log.Info("too much idle resource, close it")
 		pool.closeFunc(c)
 		return nil
 	}
 	select {
 	case pool.idleList <- c:
-		log.Info("put resource back to idle list")
 	}
 	return nil
 
