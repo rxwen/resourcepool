@@ -51,7 +51,9 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 }
 
 // Release puts the connection back to the pool.
+// deprecated, use Putback instead
 func (pool *ResourcePool) Release(c interface{}) error {
+	log.Warn("deprecated, use Putback instead")
 	if c == nil {
 		log.Info("release nil resource, ignore")
 		return nil
@@ -67,8 +69,26 @@ func (pool *ResourcePool) Release(c interface{}) error {
 
 }
 
+func (pool *ResourcePool) Putback(c interface{}, destroy bool) error {
+	if c == nil {
+		log.Info("release nil resource, ignore")
+		return nil
+	}
+	if destroy || len(pool.idleList) >= pool.maxSize {
+		pool.closeFunc(c)
+		return nil
+	}
+	select {
+	case pool.idleList <- c:
+	}
+	return nil
+
+}
+
 // CheckError destroies the connection when necessary by checking error.
+// deprecated, not useful anymore
 func (pool *ResourcePool) CheckError(c interface{}, err error) error {
+	log.Warn("deprecated, use Putback instead")
 	if err == nil {
 		return nil
 	}

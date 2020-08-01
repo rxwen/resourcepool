@@ -184,3 +184,34 @@ func TestResourcePoolReleaseOrder(t *testing.T) {
 		log.Println("failed to add to chan")
 	}
 }
+
+func putbackFunc(pool *resourcepool.ResourcePool, destroy bool) {
+	r1, _ := pool.Get()
+	r2, _ := pool.Get()
+	con, _ := pool.Get()
+	defer func() { pool.Putback(con, destroy) }()
+	defer func() { pool.Putback(r1, destroy) }()
+	defer func() { pool.Putback(r2, destroy) }()
+}
+
+func TestResourcePoolPutback(t *testing.T) {
+	assert := assert.New(t)
+	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
+		log.Println("create new resource")
+		return &FakeResource{}, nil
+	}, func(r interface{}) error {
+		log.Println("close resource ")
+		log.Println(r)
+		return nil
+	}, 3, 1)
+	assert.Nil(err)
+	assert.NotNil(pool)
+	putbackFunc(pool, false)
+	assert.Equal(3, pool.Count())
+	putbackFunc(pool, true)
+	assert.Equal(0, pool.Count())
+	putbackFunc(pool, false)
+	assert.Equal(3, pool.Count())
+	putbackFunc(pool, true)
+	assert.Equal(0, pool.Count())
+}
