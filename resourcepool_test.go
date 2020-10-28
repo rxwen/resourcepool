@@ -32,7 +32,7 @@ func TestResourcePool(t *testing.T) {
 	assert.Equal(0, pool.Count())
 
 	assert.Nil(err)
-	con, err := pool.Get()
+	con, err := pool.Get(500)
 	assert.Nil(err)
 	assert.NotNil(con)
 	assert.Equal(0, pool.Count())

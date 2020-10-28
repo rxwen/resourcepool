@@ -1,6 +1,8 @@
 package resourcepool
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,7 +23,8 @@ type ClientCreationFunc func(host, port string) (interface{}, error)
 type ClientCloseFunc func(interface{}) error
 
 // AddServer adds a new server to the pool.
-func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose ClientCloseFunc, maxSize, getTimeout int) (*ResourcePool, error) {
+func NewResourcePool(host, port string, fnCreation ClientCreationFunc,
+	fnClose ClientCloseFunc, maxSize, getTimeout int) (*ResourcePool, error) {
 	pool := ResourcePool{
 		maxSize:      maxSize,
 		host:         host,
@@ -35,13 +38,20 @@ func NewResourcePool(host, port string, fnCreation ClientCreationFunc, fnClose C
 }
 
 // Get retrives a connection from the pool.
-func (pool *ResourcePool) Get() (interface{}, error) {
+func (pool *ResourcePool) Get(waittime ...int) (interface{}, error) {
 	var res interface{}
 	var err error
+	timetowait := 3000
+	if len(waittime) > 0 {
+		timetowait = waittime[0]
+	}
 	select {
 	// try get without block to see if resource is already available
 	case res = <-pool.idleList:
-	default:
+	case <-time.After(time.Duration(timetowait) * time.Millisecond):
+		log.WithField("wait time", timetowait).Info("wait timed out, create new")
+	}
+	if res == nil {
 		res, err = pool.creationFunc(pool.host, pool.port)
 		if err != nil {
 			log.WithError(err).Error("resource creation failed")
@@ -53,7 +63,7 @@ func (pool *ResourcePool) Get() (interface{}, error) {
 // Release puts the connection back to the pool.
 // deprecated, use Putback instead
 func (pool *ResourcePool) Release(c interface{}) error {
-	log.Warn("deprecated, use Putback instead")
+	log.Warn("deprecated Release, use Putback instead")
 	if c == nil {
 		log.Info("release nil resource, ignore")
 		return nil
@@ -88,7 +98,7 @@ func (pool *ResourcePool) Putback(c interface{}, destroy bool) error {
 // CheckError destroies the connection when necessary by checking error.
 // deprecated, not useful anymore
 func (pool *ResourcePool) CheckError(c interface{}, err error) error {
-	log.Warn("deprecated, use Putback instead")
+	log.Warn("deprecated CheckError, use Putback instead")
 	if err == nil {
 		return nil
 	}
