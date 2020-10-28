@@ -41,9 +41,12 @@ func NewResourcePool(host, port string, fnCreation ClientCreationFunc,
 func (pool *ResourcePool) Get(waittime ...int) (interface{}, error) {
 	var res interface{}
 	var err error
-	timetowait := 3000
+	timetowait := pool.getTimeout * 1000
 	if len(waittime) > 0 {
 		timetowait = waittime[0]
+	}
+	if timetowait < 0 {
+		timetowait = 500
 	}
 	select {
 	// try get without block to see if resource is already available
