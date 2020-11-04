@@ -7,13 +7,15 @@ import (
 )
 
 type ResourcePool struct {
-	host         string
-	port         string
-	creationFunc ClientCreationFunc
-	closeFunc    ClientCloseFunc
-	maxSize      int
-	getTimeout   int
-	idleList     chan interface{}
+	name              string
+	host              string
+	port              string
+	creationFunc      ClientCreationFunc
+	closeFunc         ClientCloseFunc
+	maxSize           int
+	getTimeout        int
+	allocatedResource int
+	idleList          chan interface{}
 }
 
 // ClientCreationFunc is the function used for creating new client.
@@ -26,13 +28,14 @@ type ClientCloseFunc func(interface{}) error
 func NewResourcePool(host, port string, fnCreation ClientCreationFunc,
 	fnClose ClientCloseFunc, maxSize, getTimeout int) (*ResourcePool, error) {
 	pool := ResourcePool{
-		maxSize:      maxSize,
-		host:         host,
-		port:         port,
-		creationFunc: fnCreation,
-		closeFunc:    fnClose,
-		getTimeout:   getTimeout,
-		idleList:     make(chan interface{}, maxSize),
+		maxSize:           maxSize,
+		host:              host,
+		port:              port,
+		creationFunc:      fnCreation,
+		closeFunc:         fnClose,
+		getTimeout:        getTimeout,
+		idleList:          make(chan interface{}, maxSize),
+		allocatedResource: 0,
 	}
 	return &pool, nil
 }
@@ -48,14 +51,22 @@ func (pool *ResourcePool) Get(waittime ...int) (interface{}, error) {
 	if timetowait < 0 {
 		timetowait = 500
 	}
+	if pool.allocatedResource < pool.maxSize {
+		timetowait = 0
+	}
 	select {
 	// try get without block to see if resource is already available
 	case res = <-pool.idleList:
 	case <-time.After(time.Duration(timetowait) * time.Millisecond):
-		log.WithField("wait time", timetowait).Info("wait timed out, create new")
+		if timetowait != 0 {
+			log.WithField("wait time", timetowait).Info("wait timed out, create new")
+			log.WithField("port", pool.port).Info("wait timed out, create new")
+			log.WithField("host", pool.host).Info("wait timed out, create new")
+		}
 	}
 	if res == nil {
 		res, err = pool.creationFunc(pool.host, pool.port)
+		pool.allocatedResource += 1
 		if err != nil {
 			log.WithError(err).Error("resource creation failed")
 		}
@@ -73,6 +84,7 @@ func (pool *ResourcePool) Release(c interface{}) error {
 	}
 	if len(pool.idleList) >= pool.maxSize {
 		pool.closeFunc(c)
+		pool.allocatedResource -= 1
 		return nil
 	}
 	select {
@@ -89,6 +101,7 @@ func (pool *ResourcePool) Putback(c interface{}, destroy bool) error {
 	}
 	if destroy || len(pool.idleList) >= pool.maxSize {
 		pool.closeFunc(c)
+		pool.allocatedResource -= 1
 		return nil
 	}
 	select {
@@ -107,6 +120,7 @@ func (pool *ResourcePool) CheckError(c interface{}, err error) error {
 	}
 	log.Info("encountered an error, destory the connection")
 	pool.closeFunc(c)
+	pool.allocatedResource -= 1
 	return nil
 }
 
@@ -115,6 +129,7 @@ func (pool *ResourcePool) Destroy() error {
 	close(pool.idleList)
 	for res := range pool.idleList {
 		pool.closeFunc(res)
+		pool.allocatedResource -= 1
 	}
 	return nil
 }
