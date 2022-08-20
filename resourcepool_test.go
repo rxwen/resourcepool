@@ -2,8 +2,9 @@ package resourcepool_test
 
 import (
 	"errors"
-	"log"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/rxwen/resourcepool"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func TestResourcePool(t *testing.T) {
 			re.IsClosed = true
 		}
 		return nil
-	}, 3, 1)
+	}, 3, 3)
 
 	assert.Equal(0, pool.Count())
 
@@ -96,6 +97,7 @@ func TestResourcePool(t *testing.T) {
 }
 
 func TestResourcePoolCheckError(t *testing.T) {
+	log.Info("start TestResourcePoolCheckError")
 	assert := assert.New(t)
 	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
 		log.Println("create new resource")
@@ -118,9 +120,11 @@ func TestResourcePoolCheckError(t *testing.T) {
 	assert.Nil(pool.Release(con))
 	count2 := pool.Count()
 	assert.Equal(count1, count2)
+	log.Info("end TestResourcePoolCheckError")
 }
 
 func TestResourcePoolReleaseOrder(t *testing.T) {
+	log.Info("start TestResourcePoolReleaseOrder")
 	assert := assert.New(t)
 	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
 		log.Println("create new resource")
@@ -183,6 +187,7 @@ func TestResourcePoolReleaseOrder(t *testing.T) {
 	default:
 		log.Println("failed to add to chan")
 	}
+	log.Info("end TestResourcePoolReleaseOrder")
 }
 
 func putbackFunc(pool *resourcepool.ResourcePool, destroy bool) {
@@ -195,6 +200,7 @@ func putbackFunc(pool *resourcepool.ResourcePool, destroy bool) {
 }
 
 func TestResourcePoolPutback(t *testing.T) {
+	log.Info("start TestResourcePoolPutback")
 	assert := assert.New(t)
 	pool, err := resourcepool.NewResourcePool("fakehost", "9090", func(host, port string) (interface{}, error) {
 		log.Println("create new resource")
@@ -214,4 +220,5 @@ func TestResourcePoolPutback(t *testing.T) {
 	assert.Equal(3, pool.Count())
 	putbackFunc(pool, true)
 	assert.Equal(0, pool.Count())
+	log.Info("end TestResourcePoolPutback")
 }

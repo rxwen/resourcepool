@@ -10,7 +10,8 @@ import (
 ) // blank import mysql driver for sql.
 
 // CreateDBConnectionPool function creates a connection for specified mysql database.
-func CreateDBConnectionPool(host, port, username, password, database string, poolSize int, timeoutSecond int) (*resourcepool.ResourcePool, error) {
+func CreateDBConnectionPool(host, port, username, password, database string, poolSize int,
+	timeoutSecond int) (*resourcepool.ResourcePool, error) {
 	connectionString := gocommon.GetMySQLConnectionString(
 		host,
 		port,

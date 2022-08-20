@@ -59,9 +59,7 @@ func (pool *ResourcePool) Get(waittime ...int) (interface{}, error) {
 	case res = <-pool.idleList:
 	case <-time.After(time.Duration(timetowait) * time.Millisecond):
 		if timetowait != 0 {
-			log.WithField("wait time", timetowait).Info("wait timed out, create new")
-			log.WithField("port", pool.port).Info("wait timed out, create new")
-			log.WithField("host", pool.host).Info("wait timed out, create new")
+			log.WithField("wait time", timetowait).Info("wait timed out, create new " + pool.name)
 		}
 	}
 	if res == nil {
